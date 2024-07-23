@@ -22,7 +22,13 @@ using ProgressMeter
         edge_y = 20
 
         function calculate_phase_ref(Mask0, th, ns)
-            " This function compute the phase map of the reference and is used in calculate_phase_diff_map_1D "
+            """ 
+            # % Description : This function compute the phase map of the reference and is used in calculate_phase_diff_map_1D 
+            # % Maks0 = reference image used to compute the phase_ref map 
+            # % th, ns = parameters of the gaussian filter
+            # % OUTPUT:
+            # % gaussian_filter, phase_ref = both output used in calculate_phase_diff_map_1D
+            """
             nx_, ny_ = size(Mask0)
             reference_mask = Mask0[edge_x:nx_-edge_x, edge_y:ny_-edge_y]
 
@@ -149,7 +155,7 @@ using ProgressMeter
         pspp = p*wavelength_pix
 
         """ Compute phase_ref & gaussian_filter - both used in  """
-        gaussian_filter, phase_ref = calculate_phase_ref(ref_m_gray_test, th, n_)
+        gaussian_filter_, phase_ref_ = calculate_phase_ref(ref_m_gray_test, th, n_)
 
         # function extract_number(filename)
         #    # Match the pattern that captures the number before the file extension
@@ -208,8 +214,8 @@ using ProgressMeter
                         folder_map,
                         resfactor_test,
                         gray_,
-                        gaussian_filter,
-                        phase_ref,
+                        gaussian_filter_,
+                        phase_ref_,
                         L, D, pspp)
     end
 
