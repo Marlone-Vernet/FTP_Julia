@@ -18,81 +18,66 @@ using ProgressMeter
         using LinearAlgebra
         using ProgressMeter
 
-        function calculate_phase_diff_map_1D(Mask, Mask0, th, ns)
+        edge_x = 20
+        edge_y = 20
+
+        function calculate_phase_ref(Mask0, th, ns)
+            " This function compute the phase map of the reference and is used in calculate_phase_diff_map_1D "
+            nx_, ny_ = size(Mask0)
+            reference_mask = Mask0[edge_x:nx_-edge_x, edge_y:ny_-edge_y]
+
+            nx, ny = size(reference_mask)
+            phase0 = zeros(Float64, nx, ny)
+            fft2D_reference = fft( reference_mask, 2)
+
+            """ compute the filter """
+            imax = argmax( abs.( fft2D_reference[Int(floor(nx/2)), 9:Int(floor(ny/2))] ) )
+            ifmax = imax+9
+            HW = round(ifmax*th)
+            W = 2*HW+1
+            win = DSP.tukey(Int(W), ns)
+            win2D = repeat(win', (nx))
+            gauss_filt1D = zeros(Float64,nx,ny)
+            gauss_filt1D[:,Int(ifmax-HW):Int(ifmax-HW+W-1)] = win2D
+
+            """ apply filter to reference """
+            fft2D_reference_filtered = fft2D_reference .* gauss_filt1D # .* for element wise Multiplication !
+            real_ref = ifft(fft2D_reference_filtered, 2) # return in real space to compute phase map
+            phase_ref = DSP.unwrap( DSP.unwrap( angle.( real_ref ), dims=2), dims=1 )
+
+            return gauss_filt1D, phase_ref
+        end 
+
+        function calculate_phase_diff_map_1D(Mask, gaussian_filter, phase_ref)
 
             """
             # % Basic FTP treatment.
             # % This function takes a deformed and a reference image and calculates the phase difference map between the two.
             # %
             # % INPUTS:
-            # % dY	= deformed image
-            # % dY0	= reference image
-            # % ns	= size of gaussian filter
+            # % Mask = deformed image
+            # % gaussian_filter = gaussian filter, computed in calculate_phase_ref
+            # % phase_ref = map of the reference image phase, computed in calculate_phase_ref
             # %
             # % OUTPUT:
-            # % dphase 	= phase difference map between images
+            # % dphase_ 	= phase difference map between images
             """
-            edge_x = 20
-            edge_y = 20
+
             nx_, ny_ = size(Mask)
+            deformed_mask = Mask[edge_x:nx_-edge_x, edge_y:ny_-edge_y]
 
-            dY = Mask[edge_x:nx_-edge_x, edge_y:ny_-edge_y]
-            dY0 = Mask0[edge_x:nx_-edge_x, edge_y:ny_-edge_y]
-
-            nx, ny = size(dY)
-            phase0 = zeros(Float64, nx, ny)
+            nx, ny = size(deformed_mask)
             phase = zeros(Float64, nx, ny)
 
-            fY0 = fft( dY0, 2)
-            fY = fft( dY, 2)
-
-            imax = argmax( abs.( fY0[Int(floor(nx/2)), 9:Int(floor(ny/2))] ) )
-            ifmax = imax+9
-            HW = round(ifmax*th)
-            W = 2*HW+1
-            win = DSP.tukey(Int(W), ns)
-
-            win2D = repeat(win', (nx))
-
-            gauss_filt1D = zeros(Float64,nx,ny)
-            gauss_filt1D[:,Int(ifmax-HW):Int(ifmax-HW+W-1)] = win2D
+            fft_2D_deformed = fft( deformed_mask, 2)
 
             # Multiplication by the filter
-            Nfy0 = fY0 .* gauss_filt1D # .* for element wise Multiplication !
-            Nfy = fY .* gauss_filt1D
+            fft_2D_deformed_filter = fft_2D_deformed .* gaussian_filter
+            real_deformed = ifft(fft_2D_deformed_filter, 2)
 
-            Ny0 = ifft(Nfy0, 2)
-            Ny = ifft(Nfy, 2)
+            phase = DSP.unwrap( DSP.unwrap( angle.( real_deformed ), dims=2), dims=1 )
+            dephase_ = phase .- phase_ref 
 
-            phase0 = DSP.unwrap( DSP.unwrap( angle.( Ny0 ), dims=2), dims=1 )
-            phase = DSP.unwrap( DSP.unwrap( angle.( Ny ), dims=2), dims=1 )
-
-            #phase0 = DSP.unwrap( angle.( Ny0 ), dims=1:2 )
-            #phase = DSP.unwrap( angle.( Ny ), dims=1:2 )
-
-            ### test 
-            #Jump = phase[Int(round(nx/2)),Int(round(ny/2))] - phase0[Int(round(nx/2)),Int(round(ny/2))]
-            #if abs(Jump) >= pi
-            #    N = Jump÷pi
-            #    phase_unwrap = phase .- sign(Jump)*N*pi
-            #else
-            #    phase_unwrap = phase
-            #end
-            ###
-            #dephase_ = phase_unwrap - phase0
-
-            dephase_ = phase .- phase0 
-            #moyenne = mean(dephase_)
-            #if abs(moyenne) >= pi
-            #    N = moyenne÷(pi/2)
-            #    result = dephase_ .- sign(moyenne)*(N*pi/2)
-            #else 
-            #    result = dephase_                
-            #end
-            
-            # cos_ = cos.(dephase_)
-            # sin_ = sin.(dephase_)
-            # atan.(sin_,cos_)
             return dephase_ .- mean(dephase_)
         end
 
@@ -136,6 +121,7 @@ using ProgressMeter
         folder_gray = "gray"
         folder_map = "h_map"
 
+        """ INITIALISATION """
         path_gray = joinpath( folder, folder_gray )
         path_ref = joinpath( folder, folder_ref )
 
@@ -151,12 +137,6 @@ using ProgressMeter
         gray_ = channelview( FileIO.load(full_gray) )'
         reference = channelview( FileIO.load(full_ref) )'
 
-        # Confirm that lines are Sinus
-        #plot(reference[250,:])
-        #plot!(reference[750,:])
-        #plot!(reference[250,:], seriestype=:scatter)
-
-
         resfactor_test = mean(reference)/mean(gray_)
         ref_m_gray_test = reference .- resfactor_test.*gray_
 
@@ -165,24 +145,23 @@ using ProgressMeter
         # Calculate wavelength of the projected pattern
         line_ref = ref_m_gray_test[Int(floor(Nx/2)),:] # #mean(ref_m_gray_test[:,:], dims=1)
         peaks, prop = findpeaks1d(line_ref; height=0.01)
-
-
         wavelength_pix = mean( diff(peaks) )
         pspp = p*wavelength_pix
 
-        # Multiprocessing part : pour tout k
-        
+        """ Compute phase_ref & gaussian_filter - both used in  """
+        gaussian_filter, phase_ref = calculate_phase_ref(ref_m_gray_test, th, n_)
+
         # function extract_number(filename)
         #    # Match the pattern that captures the number before the file extension
         #    MAT = match(r"(\d+)\.tiff?$", tiff_files) # # # # # # # # attention parfois .tiff ou .tif !!!
         #    print(MAT)
         #    return parse(Int, MAT.captures[1])
         # end
-        
         # Sort filenames based on the extracted numeric part
         
+        # Multiprocessing part : pour tout k
 
-        function parallel_analysis(start,stop,folder,folder_save,folder_def,folder_map,resfactor,gray_,ref_m_gray,th, n_, L, D, pspp)
+        function parallel_analysis(start,stop,folder,folder_save,folder_def,folder_map,resfactor,gray_,gaussian_filter,phase_ref, L, D, pspp)
 
             path_def = joinpath( folder, folder_def )
             element_in_def = readdir( path_def ) # load the name of the images
@@ -195,7 +174,7 @@ using ProgressMeter
                 full_def_k = joinpath(folder,folder_def,name_def_k)
                 deformed_k = channelview( FileIO.load(full_def_k) )'
                 def_m_gray_k = deformed_k .- resfactor .* gray_
-                DEPHASE = calculate_phase_diff_map_1D(def_m_gray_k, ref_m_gray, th, n_) 
+                DEPHASE = calculate_phase_diff_map_1D(def_m_gray_k, gaussian_filter, phase_ref) 
                 h_total = height_map_from_phase_map(DEPHASE, L, D, pspp)
 
                 h_total_filter = imfilter(h_total, Kernel.gaussian(sigma))  # Apply Gaussian smoothing (adjust sigma as needed)
@@ -221,7 +200,17 @@ using ProgressMeter
         if remainder > 0 && i == N_python - remainder + 1
             stop_idx = N_python  # Assign remaining iterations to the last worker
         end
-        parallel_analysis(start_idx,stop_idx,folder,folder_save,folder_def,folder_map,resfactor_test,gray_,ref_m_gray_test,th, n_, L, D, pspp)
+        parallel_analysis(start_idx,
+                        stop_idx,
+                        folder,
+                        folder_save,
+                        folder_def,
+                        folder_map,
+                        resfactor_test,
+                        gray_,
+                        gaussian_filter,
+                        phase_ref,
+                        L, D, pspp)
     end
 
 
