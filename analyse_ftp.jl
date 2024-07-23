@@ -1,7 +1,7 @@
 using Distributed
 using ProgressMeter
 
-begin time
+@time begin
 
     addprocs(12)
 
@@ -228,3 +228,6 @@ begin time
     print("Running")
 
 end
+
+
+print("Done")
