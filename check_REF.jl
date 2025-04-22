@@ -58,23 +58,30 @@ function calculate_phase_diff_map_1D(Mask, Mask0, th, ns)
     phase = DSP.unwrap( DSP.unwrap( angle.( Ny ), dims=2), dims=1 )
 
     dephase_ = phase .- phase0 
-    return dephase_ .- mean(dephase_)
+    dephase_m = dephase_ .- mean(dephase_)
+    
+    return phase0,phase,dephase_,dephase_m
 end
 
 function Filtre(file_name) # attention filtre suivant .tif ou .tiff format a modifier
-    tiff_files = filter(x -> endswith(x, ".tif"), file_name)
+    tiff_files = filter(x -> endswith(x, ".tiff"), file_name)
 end
 
 n = 100
 
-folder = "/Users/vernet/Desktop/hydroelastic_project/test_2/"
+folder = "C:/Users/turbulence/Desktop/Data_images/100425/" 
 folder_ref = "ref"
+# folder_ref = "T1"
+
 path_ref = joinpath( folder, folder_ref )
 element_in_ref = Filtre( readdir( path_ref ) )
 
-name_ref1 = element_in_ref[23]
+path_def = joinpath( folder, folder_def )
+element_in_def = Filtre( readdir( path_def ) )
+
+name_ref1 = element_in_ref[13]
 name_ref2 = element_in_ref[24]
-name_ref3 = element_in_ref[25]
+name_ref3 = element_in_ref[55]
 
 full_ref1 = joinpath(folder,folder_ref,name_ref1)
 reference1 = channelview( FileIO.load(full_ref1) )'
@@ -89,6 +96,10 @@ plot(reference1[750,:])
 plot!(reference2[750,:])
 plot!(reference3[750,:])
 
+
+plot(reference1[:,500])
+plot!(reference2[:,500])
+plot!(reference3[:,500])
 
 LL = length(reference1[750,:])
 period1 = welch_pgram(reference1[750,:],LL)
@@ -117,11 +128,34 @@ heatmap(reference1)
 heatmap(reference2)
 heatmap(reference3)
 
+name_def = element_in_def[25]
+
+full_def = joinpath(folder,folder_def,name_def)
+def = channelview( FileIO.load(full_def) )'
 
 nn = 1
 th = 0.5
 dphase2 = calculate_phase_diff_map_1D(reference2,reference1, th, nn)
 dphase3 = calculate_phase_diff_map_1D(reference3,reference1, th, nn)
+
+A,B,dephase_,dephase_m = calculate_phase_diff_map_1D(def,reference1, th, nn)
+
+
+plot(A[:,750])
+plot!(B[:,750])
+
+heatmap(dphase_def)
+
+Nx,Ny = size(dphase_def)
+X = 0:1:Nx-1
+Y = 0:1:Ny-1
+p = 1e-2/(33)
+X_ = repeat(X,1,length(Y)).*p .* 1000 # en mm
+Y_ = repeat(Y',length(X),1).*p .* 1000 # en mm
+
+""" PLOT """
+# heatmap(X,Y,-h_total[:,:].*1000)
+surface(X_,Y_,-dphase_def.*1000, size=(800,800)) # en mm
 
 heatmap(dphase2)
 heatmap(dphase3)

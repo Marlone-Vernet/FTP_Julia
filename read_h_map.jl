@@ -7,19 +7,19 @@ using ProgressMeter
 # plotly()
 
 
-name_f = "h_vent_20Hz"
+name_f = "50Hz_100Hz_eps9"
 N_images = 14999
-folder = "/home/tanu/data1/DATA_post/180724/h_vent_20Hz/"
-folder_save = "/home/tanu/data1/DATA_post/180724/" 
+folder = "E:/DATA_FTP/111024/h_map_$(name_f)"
+folder_save = "E:/DATA_FTP/111024/"
 
-name = "h_map_5000.jld2"
+name = "h_map_510.jld2"
 full_path = joinpath(folder,name)
 h_total = load(full_path,"h_map")
 
 Nx,Ny = size(h_total)
 X = 0:1:Nx-1
 Y = 0:1:Ny-1
-p = 1e-2/(40)
+p = 1e-2/(33)
 X_ = repeat(X,1,length(Y)).*p .* 1000 # en mm
 Y_ = repeat(Y',length(X),1).*p .* 1000 # en mm
 
@@ -28,7 +28,14 @@ Y_ = repeat(Y',length(X),1).*p .* 1000 # en mm
 # surface(X_,Y_,-h_total[:,:].*1000, size=(800,800)) # en mm
 # plot(h_total[750,10:Ny-10])
 
-
+x1 = Nx÷5
+x2 = Nx*2÷5
+x3 = Nx*3÷5
+x4 = Nx*4÷5
+y1 = Ny÷5
+y2 = Ny*2÷5
+y3 = Ny*3÷5
+y4 = Ny*4÷5
 
 nx,ny = size(h_total)
 h_profile0 = zeros(N_images,ny)
@@ -45,15 +52,15 @@ h_profile3y = zeros(N_images,nx)
     name_i = "h_map_$(i).jld2"
     full_path_i = joinpath(folder,name_i)
     h_total_i = load(full_path_i,"h_map")
-    h_profile0[i,:] = h_total_i[250,:]
-    h_profile1[i,:] = h_total_i[750,:]
-    h_profile2[i,:] = h_total_i[1000,:]
-    h_profile3[i,:] = h_total_i[1250,:]
+    h_profile0[i,:] = h_total_i[x1,:]
+    h_profile1[i,:] = h_total_i[x2,:]
+    h_profile2[i,:] = h_total_i[x3,:]
+    h_profile3[i,:] = h_total_i[x4,:]
 
-    h_profile0y[i,:] = h_total_i[:,300]
-    h_profile1y[i,:] = h_total_i[:,600]
-    h_profile2y[i,:] = h_total_i[:,900]
-    h_profile3y[i,:] = h_total_i[:,1200]
+    h_profile0y[i,:] = h_total_i[:,y1]
+    h_profile1y[i,:] = h_total_i[:,y2]
+    h_profile2y[i,:] = h_total_i[:,y3]
+    h_profile3y[i,:] = h_total_i[:,y4]
 
 end
 
@@ -66,6 +73,8 @@ save( joinpath(folder_save, "h_y300_$(name_f).jld2"), "h_profile", h_profile0y )
 save( joinpath(folder_save, "h_y600_$(name_f).jld2"), "h_profile", h_profile1y )
 save( joinpath(folder_save, "h_y900_$(name_f).jld2"), "h_profile", h_profile2y )
 save( joinpath(folder_save, "h_y1200_$(name_f).jld2"), "h_profile", h_profile3y )
+
+print("DONE")
 
 #plot(h_profile[2100,:])
 

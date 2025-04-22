@@ -14,8 +14,8 @@ function count_elements_in_folder(folder_path::String)::Int
     return length(elements)
 end
 
-path = "/home/tanu/data1/DATA_post/180724/h_vent_20Hz"
-n = 14999
+path = "E:/DATA_FTP/150425/h_map_20Hz"
+n = 4000
 
 for i=1:n
 
